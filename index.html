@@ -35,6 +35,10 @@
     --f-display:'Archivo',-apple-system,'Segoe UI',system-ui,sans-serif;
     --f-body:'Source Serif 4',Georgia,'Times New Roman',serif;
     --f-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+    /* Fuer die Diagramme NICHT Plex Mono: Die Rahmenzeichen (U+2500-257F) fehlen dort,
+       der Browser holt sie aus einer Ersatzschrift, und die Breiten passen nicht mehr
+       zusammen. Systemschriften haben den Block vollstaendig. */
+    --f-diagram:ui-monospace,'SF Mono','Cascadia Mono','Consolas','Liberation Mono','DejaVu Sans Mono',monospace;
 
     --measure:60rem;
     --wide:60rem;
@@ -268,9 +272,10 @@
   .panel pre{
     margin:0;
     padding:1.15rem 1.25rem;
-    font-family:var(--f-mono);
+    font-family:var(--f-diagram);
+    font-variant-ligatures:none;
     font-size:.7rem;
-    line-height:1.5;
+    line-height:1.45;
     color:var(--board-ink);
     white-space:pre;
   }
