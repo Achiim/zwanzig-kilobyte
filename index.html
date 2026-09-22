@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Adaptive Abtastung, Quellenfusion und Speicherdisziplin auf einem ESP32 mit 20 kB freiem Heap — gemessene Zahlen und die Fehlschläge, die dorthin geführt haben.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Zwanzig Panels auf zwanzig Kilobyte">
+<meta property="og:description" content="Adaptive Abtastung, Quellenfusion und Speicherdisziplin auf einem ESP32 mit 20 kB freiem Heap — gemessene Zahlen und die Fehlschläge, die dorthin geführt haben.">
+<meta property="og:url" content="https://achiim.github.io/zwanzig-kilobyte/">
+<meta property="og:image" content="https://achiim.github.io/zwanzig-kilobyte/vorschau.png">
+<meta property="og:locale" content="de_DE">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+<title>Zwanzig Panels, zwanzig Kilobyte</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#F1F2F4;
+    --surface:#FFFFFF;
+    --board:#14161B;
+    --board-ink:#E9EBEF;
+    --board-dim:#8A93A2;
+    --ink:#15181E;
+    --muted:#5D6573;
+    --accent:#C2660F;
+    --accent-board:#E8912F;
+    --rule:#D4D8DE;
+    --rule-soft:#E3E6EA;
+
+    --f-display:'Archivo',-apple-system,'Segoe UI',system-ui,sans-serif;
+    --f-body:'Source Serif 4',Georgia,'Times New Roman',serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+
+    --measure:66ch;
+    --wide:60rem;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1014;
+      --surface:#171A20;
+      --board:#080A0D;
+      --board-ink:#E4E7EC;
+      --board-dim:#7E8796;
+      --ink:#E4E7EC;
+      --muted:#959DAA;
+      --accent:#F0A03F;
+      --accent-board:#F0A03F;
+      --rule:#272B34;
+      --rule-soft:#1E222A;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1014;
+    --surface:#171A20;
+    --board:#080A0D;
+    --board-ink:#E4E7EC;
+    --board-dim:#7E8796;
+    --ink:#E4E7EC;
+    --muted:#959DAA;
+    --accent:#F0A03F;
+    --accent-board:#F0A03F;
+    --rule:#272B34;
+    --rule-soft:#1E222A;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--f-body);
+    font-size:1.0625rem;
+    line-height:1.68;
+    margin:0;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- Kopfleiste ---------- */
+  .topbar{
+    position:sticky;
+    top:env(safe-area-inset-top,0px);
+    z-index:20;
+    background:color-mix(in srgb,var(--paper) 88%,transparent);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--rule-soft);
+  }
+  .topbar-in{
+    max-width:var(--wide);
+    margin:0 auto;
+    padding:.5rem 16px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:1rem;
+  }
+  .topbar strong{
+    font-family:var(--f-display);
+    font-weight:600;
+    font-size:.8125rem;
+    letter-spacing:.02em;
+  }
+  .topbar span{
+    font-family:var(--f-mono);
+    font-size:.6875rem;
+    color:var(--muted);
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+
+  .wrap{max-width:var(--wide);margin:0 auto;padding-inline:16px}
+  .col{max-width:var(--measure)}
+
+  /* ---------- Titelkopf als Tafel ---------- */
+  .masthead{
+    background:var(--board);
+    color:var(--board-ink);
+    border-radius:3px;
+    padding-block:clamp(2rem,6vw,3.25rem);
+    padding-inline:clamp(1.25rem,4vw,2.5rem);
+    margin-block:1.75rem 2.5rem;
+    position:relative;
+    overflow:hidden;
+  }
+  .masthead::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;
+    top:calc(50% - .5px);
+    height:1px;
+    background:rgba(255,255,255,.07);
+  }
+  .eyebrow{
+    font-family:var(--f-mono);
+    font-size:.6875rem;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--accent-board);
+    margin:0 0 1rem;
+  }
+  .masthead h1{
+    font-family:var(--f-display);
+    font-weight:700;
+    font-size:clamp(1.9rem,6.2vw,3.1rem);
+    line-height:1.04;
+    letter-spacing:-.025em;
+    text-wrap:balance;
+    margin:0 0 .85rem;
+    max-width:18ch;
+  }
+  .masthead p{
+    font-family:var(--f-display);
+    font-weight:500;
+    font-size:clamp(.95rem,2.4vw,1.15rem);
+    line-height:1.45;
+    color:var(--board-dim);
+    margin:0;
+    max-width:44ch;
+  }
+
+  /* ---------- Messwert-Kacheln ---------- */
+  .tiles{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));
+    gap:.5rem;
+    margin-block:0 2.5rem;
+  }
+  .tile{
+    background:var(--board);
+    color:var(--board-ink);
+    border-radius:3px;
+    padding:.9rem 1rem 1rem;
+    position:relative;
+    overflow:hidden;
+  }
+  .tile::after{
+    content:"";
+    position:absolute;left:0;right:0;
+    top:calc(50% - .5px);height:1px;
+    background:rgba(255,255,255,.07);
+  }
+  .tile b{
+    display:block;
+    font-family:var(--f-mono);
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    font-size:1.5rem;
+    letter-spacing:-.02em;
+    line-height:1.15;
+    color:var(--accent-board);
+  }
+  .tile span{
+    display:block;
+    margin-top:.35rem;
+    font-family:var(--f-mono);
+    font-size:.6875rem;
+    line-height:1.45;
+    letter-spacing:.04em;
+    color:var(--board-dim);
+  }
+
+  /* ---------- Inhalt ---------- */
+  h2{
+    font-family:var(--f-display);
+    font-weight:700;
+    font-size:clamp(1.35rem,3.6vw,1.75rem);
+    line-height:1.18;
+    letter-spacing:-.02em;
+    text-wrap:balance;
+    margin:3.25rem 0 1rem;
+    padding-top:1.5rem;
+    border-top:1px solid var(--rule);
+  }
+  h2 .num{
+    display:block;
+    font-family:var(--f-mono);
+    font-size:.6875rem;
+    font-weight:500;
+    letter-spacing:.18em;
+    color:var(--accent);
+    margin-bottom:.5rem;
+  }
+  h3{
+    font-family:var(--f-display);
+    font-weight:600;
+    font-size:1.0625rem;
+    letter-spacing:-.005em;
+    line-height:1.3;
+    text-wrap:balance;
+    margin:2.25rem 0 .65rem;
+  }
+  h3 .sub{
+    font-family:var(--f-mono);
+    font-weight:500;
+    font-size:.75rem;
+    color:var(--accent);
+    margin-right:.55em;
+    letter-spacing:.04em;
+  }
+  p{margin:0 0 1.05rem}
+  strong{font-weight:600}
+  em{font-style:italic}
+  a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+  ul,ol{margin:0 0 1.05rem;padding-left:1.35rem}
+  li{margin-bottom:.5rem}
+  li::marker{color:var(--muted)}
+
+  .lede{
+    font-size:1.15rem;
+    line-height:1.6;
+  }
+
+  /* ---------- Tafeln (Diagramme) ---------- */
+  .panel{
+    background:var(--board);
+    border-radius:3px;
+    margin:1.5rem 0 1.75rem;
+    max-width:var(--wide);
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .panel pre{
+    margin:0;
+    padding:1.15rem 1.25rem;
+    font-family:var(--f-mono);
+    font-size:.7rem;
+    line-height:1.5;
+    color:var(--board-ink);
+    white-space:pre;
+  }
+  @media (min-width:34rem){ .panel pre{font-size:.78rem} }
+
+  code{
+    font-family:var(--f-mono);
+    font-size:.88em;
+    background:var(--rule-soft);
+    padding:.1em .35em;
+    border-radius:2px;
+  }
+
+  /* ---------- Merksätze ---------- */
+  .lesson{
+    background:var(--surface);
+    border-left:3px solid var(--accent);
+    border-radius:0 3px 3px 0;
+    padding:1.15rem 1.25rem .35rem;
+    margin:1.75rem 0;
+  }
+  .lesson > :last-child{margin-bottom:.8rem}
+  .lesson .tag{
+    display:block;
+    font-family:var(--f-mono);
+    font-size:.6875rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:.6rem;
+  }
+
+  /* ---------- Tabellen ---------- */
+  .tablewrap{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    margin:1.35rem 0 1.75rem;
+    max-width:var(--wide);
+  }
+  table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:30rem;
+    font-size:.9375rem;
+    line-height:1.5;
+  }
+  th{
+    font-family:var(--f-mono);
+    font-weight:500;
+    font-size:.6875rem;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    text-align:left;
+    padding:0 1rem .5rem 0;
+    border-bottom:1px solid var(--rule);
+    vertical-align:bottom;
+  }
+  td{
+    padding:.7rem 1rem .7rem 0;
+    border-bottom:1px solid var(--rule-soft);
+    vertical-align:top;
+  }
+  td:last-child,th:last-child{padding-right:0}
+  tbody tr:last-child td{border-bottom:none}
+
+  /* ---------- Inhaltsverzeichnis ---------- */
+  .toc{
+    border:1px solid var(--rule);
+    border-radius:3px;
+    padding:1.1rem 1.25rem;
+    margin-block:0 2.5rem;
+    background:var(--surface);
+  }
+  .toc p{
+    font-family:var(--f-mono);
+    font-size:.6875rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 .75rem;
+  }
+  .toc ol{
+    list-style:none;
+    margin:0;padding:0;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));
+    gap:.3rem 1.5rem;
+    counter-reset:toc;
+  }
+  .toc li{
+    margin:0;
+    counter-increment:toc;
+    font-family:var(--f-display);
+    font-size:.9375rem;
+  }
+  .toc li::before{
+    content:counter(toc,decimal-leading-zero);
+    font-family:var(--f-mono);
+    font-size:.75rem;
+    color:var(--accent);
+    margin-right:.6em;
+  }
+  .toc a{text-decoration:none;color:var(--ink)}
+  .toc a:hover{text-decoration:underline;text-decoration-color:var(--accent)}
+
+  /* ---------- Fuß ---------- */
+  .endnote{
+    font-size:.9375rem;
+    color:var(--muted);
+    border-top:1px solid var(--rule);
+    margin-top:3rem;
+    padding-block:1.5rem 3rem;
+  }
+  .endnote p{margin-bottom:.7rem}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  }
+  html{scroll-behavior:smooth}
+</style>
+
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-in">
+    <strong>Zwanzig Panels, zwanzig Kilobyte</strong>
+    <span>Erfahrungsbericht</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Erfahrungsbericht · Eingebettete Systeme</p>
+    <h1>Zwanzig Panels auf zwanzig Kilobyte</h1>
+    <p>Adaptive Abtastung, Quellenfusion und Speicherdisziplin auf einem ESP32 — was gemessen wurde, und was dabei schiefging.</p>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><b>20.328 B</b><span>frei im Live-Betrieb</span></div>
+    <div class="tile"><b>17.396 B</b><span>größter Block am Stück</span></div>
+    <div class="tile"><b>1 h → 20 s</b><span>Abtastrate, Faktor 180</span></div>
+    <div class="tile"><b>12 Byte</b><span>fehlten zum Stillstand</span></div>
+  </div>
+
+  <div class="toc">
+    <p>Inhalt</p>
+    <ol>
+      <li><a href="#s1">Worum es geht</a></li>
+      <li><a href="#s2">Aufbau</a></li>
+      <li><a href="#s3">Die Speicherdecke</a></li>
+      <li><a href="#s4">Adaptive Abtastung</a></li>
+      <li><a href="#s5">Quellenfusion</a></li>
+      <li><a href="#s6">Zustand statt nachgebauter Erkennung</a></li>
+      <li><a href="#s7">Wiedergabe statt Warten</a></li>
+      <li><a href="#s8">Was schiefging</a></li>
+      <li><a href="#s9">Grenzen dieses Berichts</a></li>
+      <li><a href="#s10">Was übertragbar ist</a></li>
+    </ol>
+  </div>
+
+  <div class="col">
+    <p class="lede">Dieser Bericht beschreibt ein vernetztes Anzeigegerät, das laufende Fußballpartien auf zwanzig kleinen Displays darstellt: zwanzig ST7735-Panels an einer Kette aus Schieberegistern, getrieben von einem ESP32 mit rund <strong>20 kB freiem Heap</strong>. Die Datenquellen liefern JSON-Dokumente, die um ein Vielfaches größer sind als der verfügbare Arbeitsspeicher.</p>
+
+    <p>Aus dieser Spannung folgen drei Entwurfsentscheidungen, die den Kern des Berichts bilden: ein <strong>elementweise arbeitender Parser</strong>, der nie mehr als ein Arrayelement zugleich im Speicher hält — in einer einzigen, geteilten 8-kB-Ablage —, eine <strong>adaptive Abtastrate</strong> von einer Stunde bis zu zwanzig Sekunden je nach Ereigniswahrscheinlichkeit, und eine <strong>Quellenfusion, die nicht je Wettbewerb, sondern je Aspekt</strong> entscheidet, welcher Quelle sie glaubt.</p>
+
+    <p>Berichtet werden gemessene Zahlen aus dem Betrieb und die Fehlschläge, die dorthin geführt haben — darunter eine Vergrößerung eines Puffers um 1 kB, die das Gerät vollständig lahmlegte, und Speichereinbrüche, die monatelang der Anwendung zugeschrieben wurden und vom WLAN-Treiber stammten.</p>
+  </div>
+
+  <h2 id="s1"><span class="num">Abschnitt 01</span>Worum es geht</h2>
+  <div class="col">
+    <p>Die meisten IoT-Knoten messen etwas und schicken es fort. Dieser hier macht das Gegenteil: Er <strong>holt</strong> Zustände aus der Welt und macht sie sichtbar. Er hat keinen Sensor, sondern zwanzig Aktoren, und seine einzige Eingabe ist eine Infrarot-Fernbedienung.</p>
+
+    <p>Der Gegenstand ist die <strong>Partie</strong> — ein einzelnes Spiel zwischen zwei Mannschaften. Von ihr will das Gerät wissen, ob sie läuft, wie sie steht und wer getroffen hat. Ein <strong>Spieltag</strong> ist die Menge der Partien, die in derselben Runde eines Wettbewerbs stattfinden; sie laufen oft gleichzeitig, und das ist der Fall, der das Gerät an seine Grenzen bringt.</p>
+
+    <p>Das klingt nach einer Anzeige, ist aber keine. Eine Anzeige reicht Daten durch. Dieses Gerät muss entscheiden:</p>
+
+    <ul>
+      <li><strong>Wie oft es hinsieht.</strong> Dauerhaft alle zwanzig Sekunden abzufragen wäre weder den Servern noch dem eigenen Speicher zuzumuten.</li>
+      <li><strong>Welcher Quelle es glaubt.</strong> Es gibt zwei, sie widersprechen sich, und keine ist überall besser.</li>
+      <li><strong>Was überhaupt passiert ist.</strong> Keine der Quellen hat ein Feld „das Spiel läuft gerade“. Der Zustand muss abgeleitet werden.</li>
+    </ul>
+
+    <p>Genau diese drei Fragen machen aus dem Gerät einen interessanten Fall — und sie sind nicht fußballspezifisch. Wer Zustände aus fremden Systemen auf einem eingeschränkten Gerät abbildet, steht vor denselben drei Fragen.</p>
+  </div>
+
+  <h2 id="s2"><span class="num">Abschnitt 02</span>Aufbau</h2>
+
+  <div class="panel"><pre>┌─────────────────┐     WLAN/TLS      ┌────────────────────┐    HTTPS   ┌──────────┐
+│  ESP32          │ ────────────────► │  Gateway (NUC)     │ ─────────► │ Quelle A │
+│  20× ST7735     │                   │  nginx +           │            └──────────┘
+│  10× 74HC595    │                   │  Schemaübersetzer  │ ─────────► ┌──────────┐
+│  IR-Empfänger   │                   │  NTP (chrony)      │            │ Quelle B │
+└─────────────────┘                   └────────────────────┘            └──────────┘</pre></div>
+
+  <div class="col">
+    <p><strong>Das Gerät</strong> ist ein ESP32 mit einem einzigen SPI-Bus für alle zwanzig Panels. Die Chip-Select-Leitungen erzeugt eine Kette aus zehn Schieberegistern (74HC595) — zwanzig einzelne Leitungen wären am Controller nicht unterzubringen. Ein Nebeneffekt dieser Bauweise: Ein Bitfehler in der Kette verschiebt <em>alle</em> nachfolgenden Auswahlen, weshalb die Kette turnusmäßig neu beschrieben wird, auch wenn sich nichts geändert hat.</p>
+
+    <p><strong>Das Gateway</strong> ist der eigentlich interessante Teil der Architektur. Es leistet dreierlei:</p>
+
+    <ol>
+      <li><strong>Schemaübersetzung.</strong> Die zweite Quelle liefert eine völlig andere Datenstruktur. Ein schlanker Dienst übersetzt sie in die Form der ersten, sodass das Gerät nur <em>ein</em> Schema kennen muss. Die Fallunterscheidung steht auf dem Gateway, wo Speicher und Rechenzeit reichlich vorhanden sind, nicht auf dem Knoten.</li>
+      <li><strong>Reduktion.</strong> Das Gateway kürzt Antworten auf das, was das Gerät braucht. Die Daten eines Spielplans schrumpften dadurch von rund 78 kB auf 11 kB.</li>
+      <li><strong>Zeit.</strong> Ein lokaler NTP-Dienst stellt die Uhr des Geräts. Ohne verlässliche Zeit ist keine der späteren Ableitungen möglich.</li>
+    </ol>
+
+    <div class="lesson">
+      <span class="tag">Erste übertragbare Lehre</span>
+      <p>Ein Gateway ist nicht nur ein Proxy. Es ist die Stelle, an der Heterogenität stirbt.</p>
+      <p>Gemeint ist damit: <strong>Hinter dem Gateway gibt es nur noch eine einzige Datenform.</strong> Die Vielfalt der Quellen endet dort und kommt beim Gerät gar nicht erst an. Der Knoten hat <em>einen</em> Parser, <em>einen</em> Filter, <em>einen</em> Satz Feldnamen — und weiß nicht einmal, mit welcher Quelle er gerade spricht. Jede Fallunterscheidung, die im Gateway gelöst wird, muss nicht in einem Gerät mit 20 kB Heap gelöst werden.</p>
+      <p>Genau genommen stirbt dort allerdings nur die halbe Heterogenität: Das Gateway vereinheitlicht die <strong>Form</strong>, nicht die <strong>Entscheidung</strong>. Welcher Quelle für welchen Aspekt geglaubt wird, bleibt beim Gerät — siehe Abschnitt 5.</p>
+    </div>
+  </div>
+
+  <h2 id="s3"><span class="num">Abschnitt 03</span>Die Speicherdecke</h2>
+  <div class="col">
+    <p>Das Gerät hat rund <strong>225 kB statisch belegtes DRAM</strong>. Vom Rest bleiben im Live-Betrieb typischerweise <strong>rund 20 kB frei</strong> — in einer durchgemessenen Stunde <strong>20.328 Byte</strong>. Die Zahl, auf die es ankommt, ist aber eine andere: Der <strong>größte zusammenhängende freie Block</strong> lag zur selben Zeit bei <strong>17.396 Byte</strong>.</p>
+
+    <h3><span class="sub">3.1</span>Warum diese beiden Zahlen auseinanderfallen</h3>
+
+    <p>„Frei“ ist eine <strong>Summe</strong>. Sie zählt alle freien Bytes zusammen, gleichgültig, wo sie liegen. Eine Speicheranforderung braucht dagegen <strong>ein einziges Stück am Stück</strong>: Ein Puffer lässt sich nicht auf mehrere Lücken verteilen.</p>
+
+    <p>Im Betrieb werden laufend Blöcke belegt und wieder freigegeben. Was zurückbleibt, ist kein leerer Raum, sondern ein durchlöcherter — freie und belegte Bereiche wechseln sich ab. Das nennt man <strong>Fragmentierung</strong>:</p>
+  </div>
+
+  <div class="panel"><pre>  frei insgesamt: 20 kB                 groesster Block: 17 kB
+  ┌────────────────────┬────────┬────┬────────┬────┐
+  │     17 kB frei     │ belegt │ 2k │ belegt │ 1k │
+  └────────────────────┴────────┴────┴────────┴────┘
+                                 ▲              ▲
+                        diese 3 kB zaehlen als "frei" mit,
+                        sind fuer einen 4-kB-Puffer aber wertlos</pre></div>
+
+  <div class="col">
+    <p>Auf einem PC merkt man davon nichts: Dort setzt eine Speicherverwaltungseinheit in der Hardware verstreute Seiten zu einem zusammenhängenden Bereich zusammen, und die Anwendung sieht nur den fertigen Block. <strong>Ein ESP32 hat diese Einheit nicht.</strong> Was im physischen Speicher zerstückelt ist, bleibt zerstückelt. Ein freigegebener Block hilft nur dann, wenn er zufällig an einen anderen freien grenzt.</p>
+
+    <p>Deshalb ist „noch 20 kB frei“ auf einem solchen Gerät keine beruhigende Auskunft. Die belastbare Frage lautet: <strong>Wie groß ist das größte Stück am Stück?</strong></p>
+
+    <p><strong>Ein zweiter Effekt kommt hinzu, der noch weniger sichtbar ist.</strong> Der Arbeitsspeicher des ESP32 ist nicht ein einziger durchgehender Bereich, sondern zerfällt in mehrere <strong>Regionen</strong> — getrennte Adressbereiche, über deren Grenze hinweg kein Block wachsen kann. Was in der einen Region frei wird, nützt in der anderen nichts.</p>
+
+    <p>An diesem Gerät liegen die <strong>Stapelspeicher der Tasks in einer anderen Region als der große freie Block</strong> — <code>0x3ffe0440</code> gegenüber <code>0x3ffe4350</code>. Ein Vorschlag, einen Task-Stack um 2 kB zu verkleinern, hätte den nutzbaren Block deshalb <strong>um kein einziges Byte vergrößert</strong>. Er hätte nur den Stack an den Rand des Überlaufs gebracht:</p>
+  </div>
+
+  <div class="panel"><pre>  Region 1  (0x3ffe0440)        Region 2  (0x3ffe4350)
+  ┌───────────────────────┐     ┌───────────────────────┐
+  │ Task-Stacks, randvoll │     │   der grosse freie    │
+  │                       │     │        Block          │
+  └───────────────────────┘     └───────────────────────┘
+        hier 2 kB sparen  ──✗──►  vergroessert hier nichts</pre></div>
+
+  <div class="col">
+    <p>Wer auf so einem Gerät Speicher sucht, muss also wissen, <strong>wo</strong> er frei wird, nicht nur wie viel.</p>
+
+    <h3><span class="sub">3.2</span>Elementweises Lesen</h3>
+
+    <p>Zurück zu den 17 kB am Stück, und damit zur Datenseite: <strong>Die Antwortdokumente der Quellen sind um ein Vielfaches größer.</strong> Die Daten eines Spielplans brachten es vor der Kürzung im Gateway auf rund 78 kB — mehr als das Vierfache dessen, was sich überhaupt am Stück belegen lässt. Auch gekürzt bleiben Dokumente übrig, die nicht in einem Stück in den Speicher passen.</p>
+
+    <p><strong>Zwei Dinge heißen dabei fast gleich</strong>, deshalb vorab die Begriffe:</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:12rem">Begriff</th><th>was gemeint ist</th></tr></thead>
+      <tbody>
+        <tr><td><strong>JSON-Dokument</strong></td><td>der Text, den die Quelle über HTTP liefert. Groß, und während der Verarbeitung nur als <strong>Strom</strong> vorhanden — er wird nie als Ganzes im Gerät abgelegt</td></tr>
+        <tr><td><strong>Ablage</strong></td><td>die Datenstruktur im Arbeitsspeicher des ESP32, in die geparste Werte gelegt werden. Die verwendete Bibliothek nennt auch sie „Document“ — hier heißt sie <em>Ablage</em>, damit die beiden nicht verschwimmen</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <p><strong>Ein JSON-Dokument der Quellen ist im Kern ein Array</strong> — eine Liste gleichartiger Einträge. Was darin steht, hängt vom Abruf ab:</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:12rem">Abruf</th><th>ein Eintrag ist …</th></tr></thead>
+      <tbody>
+        <tr><td>Spieltag</td><td>eine <strong>Partie</strong> mit Stand und Torliste</td></tr>
+        <tr><td>Tabelle</td><td>eine Mannschaft mit Punkten und Tordifferenz</td></tr>
+        <tr><td>Aufstellung</td><td>ein Spieler mit Position und Rückennummer</td></tr>
+        <tr><td>Spielverlauf</td><td>ein Ereignis der laufenden Partie: Tor, Karte, Abschnittswechsel</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <p>Der naheliegende Weg wäre, dieses Array vollständig in eine Ablage zu parsen, also ein Abbild des ganzen Dokuments im Speicher aufzubauen. <strong>Genau das geschieht nie.</strong></p>
+
+    <p>Stattdessen wird <strong>immer nur ein einzelner Eintrag zugleich abgelegt</strong> — im Beispiel unten eine Partie. Ein <strong>Filter</strong> legt dabei fest, welche Felder eines Eintrags überhaupt übernommen werden; alles andere überliest der Parser, ohne dafür Speicher zu belegen:</p>
+  </div>
+
+  <div class="panel"><pre>  JSON-Dokument                 Ablage im RAM
+  als HTTP-Strom                (8 kB, EINMAL angelegt)
+  ┌──────────────┐
+  │ [ Partie 1,  │──► Filter ──►┌─────────────┐
+  │   Partie 2,  │              │  Partie 1   │──► Rueckruf: Werte in die
+  │   Partie 3,  │              └─────────────┘    eigenen Strukturen holen
+  │   …          │                     │
+  │   Partie 31 ]│              geleert, wiederverwendet
+  └──────────────┘                     │
+    78 kB, nie                         ▼
+    am Stueck im            ┌─────────────┐
+    Speicher                │  Partie 2   │──► Rueckruf …
+                            └─────────────┘</pre></div>
+
+  <div class="col">
+    <p>Damit hängt der Speicherbedarf <strong>nicht mehr an der Größe des Dokuments</strong>, sondern nur noch am <strong>größten einzelnen Eintrag</strong>. Ob eine Runde drei oder einunddreißig Partien enthält, ändert am Bedarf nichts — und das ist der eigentliche Gewinn: Die Auslegung wird unabhängig von einer Zahl, über die das Gerät nicht bestimmt. Dieselbe Ablage trägt deshalb auch alle anderen Abrufarten aus der Tabelle oben, ohne dass eine davon eine eigene bekommt.</p>
+
+    <p>Die Ablage wird <strong>einmal</strong> angelegt und für alle Abrufe benutzt. Es gibt genau <strong>einen</strong> Abrufweg im ganzen Programm. Das ist keine Ästhetik, sondern Speicherpolitik: Zwei Abrufwege bedeuten zwei Ablagen, und die zweite ist genau die, die bei der nächsten Erweiterung nicht mehr hineinpasst.</p>
+
+    <h3><span class="sub">3.3</span>Der Einbruch, der nicht von der Anwendung kam</h3>
+
+    <p>Monatelang zeigten die Protokolle Speichertiefs unter <strong>1,3 kB</strong>. Die Suche lief in der Anwendung — größere Puffer, kleinere Puffer, andere Reihenfolgen. Gefunden wurde nichts, weil dort nichts war.</p>
+
+    <p>Die Einbrüche stammten vom <strong>WLAN-Treiber</strong>. Er legt Empfangspuffer zu je <strong>2.308 Byte</strong> an, bis zu <strong>32 Stück</strong>, und zwar dynamisch bei Empfangslast. Das sind im Extremfall über 70 kB, die plötzlich fehlen — und zwar genau dann, wenn gerade eine Antwort hereinkommt, also genau dann, wenn die Anwendung selbst am meisten braucht.</p>
+
+    <p><strong>Die Obergrenze für diese Puffer wurde von 32 auf 6 gesenkt.</strong> Im schlimmsten Fall belegt der Treiber damit rund 14 kB statt 72 kB — <strong>knapp 60 kB weniger</strong>. Im Live-Betrieb liegt der Speicherboden seither bei <strong>23 kB</strong> statt unter 1,3 kB, bei null fehlgeschlagenen Belegungen.</p>
+
+    <div class="lesson">
+      <span class="tag">Zweite übertragbare Lehre</span>
+      <p>Wenn der Speicher einbricht und die Anwendung nichts erklärt, such <strong>in den Schichten darunter</strong> — im Framework und in den Treibern. Sie sind stille Großverbraucher, und ihre Puffergrößen stehen selten dort, wo man sie vermutet.</p>
+    </div>
+
+    <h3><span class="sub">3.4</span>Warum man vorher misst</h3>
+
+    <p>Eine Erweiterung eines Puffers um <strong>1 kB</strong> legte das gesamte Gerät lahm. Nicht langsamer, nicht instabil — es lief nicht mehr an. Der größte freie Block war zu dem Zeitpunkt <strong>zwölf Byte</strong> zu klein.</p>
+
+    <p>Seither gilt die Regel: <strong>Vor jeder Vergrößerung wird der größte freie Block nachgesehen, nicht der freie Speicher.</strong> Fragmentierung ist auf einem Gerät ohne MMU kein akademisches Thema, sondern die häufigste Absturzursache nach dem Nullzeiger.</p>
+
+    <h3><span class="sub">3.5</span>Eine TLS-Sitzung, nicht viele</h3>
+
+    <p>Ein TLS-Handschlag kostet auf diesem Gerät mehrere Kilobyte gleichzeitig verfügbaren Speichers. Es gibt deshalb <strong>genau eine</strong> Verbindung, die wiederverwendet wird.</p>
+
+    <p>Die Bedingung dafür ist unscheinbar und entscheidend: <strong>Wiederverwendet wird nur, wenn die vorige Antwort restlos gelesen wurde.</strong> Bleibt auch nur ein Byte im Strom, ist die Verbindung nicht wiederverwendbar, und der nächste Abruf baut neu auf — mit vollem Speicherbedarf, meist genau dann, wenn viel los ist.</p>
+
+    <p><strong>Darin steckt eine Messfalle.</strong> Wer prüfen will, ob der teure Verbindungsaufbau noch zuverlässig gelingt, löst dafür naheliegenderweise viele Abrufe kurz hintereinander aus. Genau das misst ihn aber nicht: Solange die Verbindung offen bleibt, wird sie wiederverwendet. Ein neuer Handschlag entsteht nur nach dem Start des Geräts und nachdem die Verbindung 60 Sekunden ungenutzt war.</p>
+
+    <p>Wer also Abruf an Abruf reiht, bekommt jedes Mal den billigen Fall — und hält ihn für den teuren. <strong>Der teure Fall braucht eine Pause, kein Gedränge.</strong></p>
+  </div>
+
+  <h2 id="s4"><span class="num">Abschnitt 04</span>Adaptive Abtastung</h2>
+  <div class="col">
+    <h3><span class="sub">4.1</span>Drei Takte</h3>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:10rem">Betriebsart</th><th style="width:9rem">Takt</th><th>wann</th></tr></thead>
+      <tbody>
+        <tr><td>Ruhe</td><td>1 Stunde</td><td>nichts steht an</td></tr>
+        <tr><td>Vorlauf</td><td>1 Minute</td><td>ein Anstoß ist nah</td></tr>
+        <tr><td>Live</td><td>20 Sekunden</td><td>eine Partie läuft</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel"><pre>      Ruhe             Vorlauf                  Live                    Ruhe
+ ├───────────────┼─────────────────┼──────────────────────────────┼───────────────
+ │   1 Stunde    │    1 Minute     │        20 Sekunden           │   1 Stunde
+ │   ·       ·   │  · · · · · · ·  │ ·············· ·············· │   ·       ·
+ └───────────────┴─────────────────┴──────────────────────────────┴───────────────
+                 ▲                 ▲                              ▲
+        Anstoss rueckt in       Anpfiff                        Abpfiff
+        Sichtweite</pre></div>
+
+  <div class="col">
+    <p>Der Faktor zwischen Ruhe und Live ist <strong>180</strong>. Ein fester Takt müsste sich für einen der beiden Fälle entscheiden und wäre entweder verschwenderisch oder zu langsam.</p>
+
+    <p>Die Entscheidung trifft eine Prüfung je Partie, die im Kern fragt: <em>Kann sich hier überhaupt noch etwas ändern?</em> Eine Partie, deren Endstand gelesen ist, wird nicht mehr abgefragt. Eine Partie, deren geplanter Anstoß längst vorbei ist, von der aber kein Stand vorliegt, wird ebenfalls nicht mehr abgefragt — sie fällt in einen eigenen Zustand „überfällig“.</p>
+
+    <h3><span class="sub">4.2</span>Bündeln statt einzeln fragen</h3>
+
+    <p>Ein Pokalwettbewerb hat bis zu einunddreißig gleichzeitige Partien. Die erste Umsetzung fragte jede einzeln ab. Das ergab <strong>rund dreißig Anfragen je Runde</strong> und provozierte, was zu erwarten war: <strong>HTTP 429, Too Many Requests.</strong></p>
+
+    <p>Die Korrektur war, die Runde in <strong>einer</strong> Anfrage zu holen. Damit das im Speicher bleibt, greift wieder das elementweise Lesen — die Antwort wird nie als Ganzes gehalten. Gemessen im Betrieb: <strong>31 gebündelte Runden, rund 100 ms</strong>, null Einzelabrufe.</p>
+
+    <div class="lesson">
+      <span class="tag">Dritte übertragbare Lehre</span>
+      <p>Ein Ratenlimit ist selten ein Serverproblem. Es ist meistens die Quittung für eine Zugriffsform, die für eine andere Größenordnung entworfen wurde — hier: für eine Handvoll gleichzeitiger Partien statt für einunddreißig.</p>
+    </div>
+
+    <h3><span class="sub">4.3</span>Nur holen, was sich geändert hat</h3>
+
+    <p>Die Quelle liefert je Datensatz einen Änderungszeitstempel. Bleibt er gleich, entfällt der große Abruf vollständig. Das Gerät hält zusätzlich ein Gedächtnis über bereits besuchte Spieltage, sodass das Zurückblättern in bekannte Daten ohne jeden Netzzugriff auskommt.</p>
+  </div>
+
+  <h2 id="s5"><span class="num">Abschnitt 05</span>Quellenfusion</h2>
+  <div class="col">
+    <p>Es gibt zwei Quellen. Die naheliegende Lösung wäre, je Wettbewerb eine auszuwählen. Sie ist falsch.</p>
+
+    <p><strong>Die Quellen sind nicht insgesamt unterschiedlich gut, sondern je Aspekt.</strong> Deshalb wird je <strong>Aspekt</strong> entschieden:</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:14rem">Aspekt</th><th style="width:6rem">Quelle</th><th>Grund</th></tr></thead>
+      <tbody>
+        <tr><td>Tore, Tabelle</td><td>A</td><td>vollständiger, konsistenter</td></tr>
+        <tr><td>Anpfiff, Halbzeit, Abpfiff</td><td>B</td><td>Quelle A hat gar kein Zustandsfeld</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <p>Das ist der Kern dessen, was in der Sensorik Fusion heißt: nicht mitteln, sondern wissen, welche Quelle worin belastbar ist — und das durch Messung, nicht durch Annahme.</p>
+
+    <h3><span class="sub">5.1</span>Was die Messung über die Quellen ergab</h3>
+
+    <p>Diese Eigenheiten wurden im Betrieb festgestellt, nicht der Dokumentation entnommen — es gibt keine:</p>
+
+    <ul>
+      <li><strong>Quelle A kennt keinen Zustand „läuft“.</strong> Das einzige Zustandsfeld ist „ist beendet“. Ob eine Partie begonnen hat, muss aus der Existenz von Ergebniszeilen und der Uhrzeit abgeleitet werden. Eine 0:0-Zeile beweist dabei nichts: Sie wird teils vorab angelegt.</li>
+      <li><strong>Bei Quelle B läuft die Toreliste dem Spielstand um rund 40 Sekunden voraus.</strong> Wer beides liest, sieht ein Tor, das im Stand noch nicht steht. Die Abhilfe ist, die Toreliste am Spielstand abzuschneiden — lieber 40 Sekunden später als 40 Sekunden falsch.</li>
+      <li><strong>Tore werden zurückgenommen, ohne dass das vermerkt wird.</strong> Ein Stand kann sinken. Jede Logik, die Monotonie annimmt, ist damit falsch.</li>
+      <li><strong>Eigentore dürfen nicht umgedreht werden.</strong> Das wurde an <strong>686 von 686</strong> Fällen geprüft, weil die Gegenannahme plausibel klingt und teuer wäre.</li>
+      <li><strong>Der Statusname schwankt, die Abschnittsnummer nicht.</strong> Wer auf Textfelder prüft, bekommt gelegentlich eine andere Schreibweise; das numerische Feld ist stabil.</li>
+    </ul>
+
+    <h3><span class="sub">5.2</span>Verlässlichkeit ist eine Eigenschaft des Wettbewerbs, nicht des Geräts</h3>
+
+    <p>Wie gut eine Halbzeit-Zeile geführt wird, hängt am Wettbewerb. In einem gemessenen Fall kam der Übergang <strong>zweimal, jeweils rund vierzig Sekunden bevor die andere Quelle die Pause überhaupt kannte</strong>. Für andere Wettbewerbe gibt es keine solche Messung.</p>
+
+    <p>Daraus folgte ein Schalter <strong>je Wettbewerb</strong> statt eines globalen. Ein globaler Schalter hätte zwei Fehler zugleich gemacht: die gute Quelle verschenkt und der schlechten geglaubt.</p>
+  </div>
+
+  <h2 id="s6"><span class="num">Abschnitt 06</span>Zustand statt nachgebauter Erkennung</h2>
+  <div class="col">
+    <p>Die erste Umsetzung ließ jede interessierte Stelle selbst erkennen, ob sich etwas geändert hatte — der Signalgeber, die Animation, die Halbzeit-Erkennung, die Anzeige. Jede merkte sich einen eigenen Vorzustand. Das führte zu den bekannten Folgen: doppelte Auslösungen, ausbleibende Auslösungen, und vier Stellen, die zu unterschiedlichen Ergebnissen kamen.</p>
+
+    <p>Die Umstellung war zweiteilig:</p>
+
+    <ol>
+      <li><strong>Eine Funktion bestimmt die Phase</strong> einer Partie aus den Rohdaten. Sie ist die einzige Stelle, die Quellenfelder auswertet.</li>
+      <li><strong>Ein Wechsel legt ein Ereignis in eine Queue.</strong> Alle anderen <em>lesen</em> Ereignisse, statt sich Wechsel selbst zu bauen.</li>
+    </ol>
+  </div>
+
+  <div class="panel"><pre> Zustaende         Vor ─────── Laeuft ─────── Pause ─────── Laeuft ─────── Ende
+ (was gilt)              ▲            ▲             ▲              ▲
+                         │            │             │              │
+ Uebergaenge          Anpfiff    Pausenpfiff   Wiederanpfiff    Abpfiff
+ (was gerade             │            │             │              │
+  passiert ist)          └────────────┴──────┬──────┴──────────────┘
+                                             ▼
+                                        EINE Queue
+                                             │
+                     ┌──────────┬────────────┼────────────┬──────────┐
+                     ▼          ▼            ▼            ▼          ▼
+                  Buzzer   Tabellen-     Halbzeit-      Board    Log/Diagnose
+                           animation     Anzeige</pre></div>
+
+  <div class="col">
+    <p>Damit feuert ein Übergang <strong>von Bauart her genau einmal</strong>. Vorher musste das jede Stelle für sich sicherstellen — und eine davon tat es nicht.</p>
+
+    <div class="lesson">
+      <span class="tag">Die begriffliche Trennung, die das trägt</span>
+      <p>Ein <strong>Zustand</strong> ist, was gerade gilt. Ein <strong>Übergang</strong> ist der Moment, in dem er sich ändert. Angezeigt wird auf Zustände, signalisiert wird auf Übergänge.</p>
+      <p>Der Unterschied ist praktisch: Wer das Gerät mitten in einer Halbzeitpause einschaltet, soll <strong>sehen</strong>, dass Pause ist — aber keinen Pausenpfiff hören. Dass Pause ist, ist ein Zustand und gilt weiter; der Pfiff war ein Übergang und ist verklungen.</p>
+      <p>Für ein Tor gilt dasselbe, und genau hier wird die Trennung greifbar: <strong>Der Spielstand erscheint sofort</strong> — er ist Zustand, und ein 2:1 bleibt ein 2:1, gleichgültig wann man hinsieht. <strong>Signalton und Animation bleiben aus</strong> — sie gehörten zum Übergang, und der liegt zurück. Zustände werden nachgeholt, Ereignisse nicht.</p>
+    </div>
+  </div>
+
+  <h2 id="s7"><span class="num">Abschnitt 07</span>Methodik: Wiedergabe statt Warten</h2>
+  <div class="col">
+    <p>Der schwierigste Teil bei einem Gerät, das auf Ereignisse in der echten Welt reagiert, ist die Prüfung. Live-Verhalten lässt sich nur live beobachten — und live ist zweimal die Woche für neunzig Minuten.</p>
+
+    <p><strong>Die Lösung war eine Aufzeichnung auf dem Gateway.</strong> Alle Antworten eines Spieltags werden mitgeschnitten und lassen sich später erneut abspielen. Das Gerät merkt den Unterschied nicht; es sieht dieselben Antworten in derselben Reihenfolge.</p>
+
+    <p>Damit ließ sich jede Änderung am Live-Verhalten prüfen, <strong>ohne auf ein Spiel zu warten</strong> — die Bündelung der Rundenabrufe ebenso wie die Zustandserkennung. In der industriellen Praxis ist das ein bekanntes Verfahren; für ein Bastelprojekt ist es der Unterschied zwischen „vermutlich richtig“ und „geprüft“.</p>
+
+    <h3>Drei Beweisregeln, die sich im Betrieb ergaben</h3>
+
+    <p>Diese drei Regeln sind aus Fehlschlägen entstanden und gelten inzwischen als Bedingung dafür, dass ein Befund als belegt zählt:</p>
+
+    <p><strong>Nacheinander gemessen ist nicht verglichen.</strong> Misst man erst mit der alten Einstellung und danach mit der neuen, kann ein Unterschied von der Änderung kommen — oder von allem anderen, was sich inzwischen geändert hat: Netzlast, Tageszeit, Datenmenge, Temperatur. In den Zahlen sieht beides gleich aus, und man kann nicht mehr sagen, woher der Unterschied stammt. Erst wenn man <strong>im Wechsel</strong> misst — A, B, A, B —, lässt er sich der Änderung zuschreiben statt dem Zufall.</p>
+
+    <p><strong>Eine passende Rechnung ist kein Beweis.</strong> Dass eine Vermutung die gemessene Zahl erklärt, bestätigt sie nicht: Meist gibt es mehrere Erklärungen, die dieselbe Zahl ergeben. Gesucht ist nicht die Rechnung, die passt, sondern die Messung, bei der die Erklärungen <strong>verschiedene</strong> Ergebnisse vorhersagen.</p>
+
+    <p><strong>Eine leere Liste beweist nichts.</strong> Sie kann bedeuten, dass nichts da ist — oder dass falsch gefragt wurde. Im Protokoll sehen beide Fälle gleich aus. Bevor man aus einer Leere etwas schließt, muss man sie von einem Fehlgriff unterscheiden können.</p>
+  </div>
+
+  <h2 id="s8"><span class="num">Abschnitt 08</span>Was schiefging</h2>
+  <div class="col">
+    <p>Ein Erfahrungsbericht ohne Fehlschläge ist eine Werbebroschüre. Die folgenden Fälle haben je mehrere Stunden gekostet und sind übertragbar:</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:17rem">Symptom</th><th>tatsächliche Ursache</th></tr></thead>
+      <tbody>
+        <tr><td>Gerät startet nach einer Änderung nicht mehr</td><td>Puffer um 1 kB vergrößert; größter freier Block war <strong>12 Byte</strong> zu klein</td></tr>
+        <tr><td>Speichertiefs unter 1,3 kB, Anwendung unverdächtig</td><td>WLAN-Treiber legt bis zu 32 Empfangspuffer zu je 2.308 B an</td></tr>
+        <tr><td>Verbindungsfehler bei intaktem Netz</td><td>Nicht das Netz, sondern Speichermangel beim TLS-Handschlag. Der Fehlercode legt das Netz nahe und führt zuverlässig in die falsche Richtung</td></tr>
+        <tr><td>Antworten gültig, aber alle Felder leer</td><td>Der Filter war für ein ganzes Array geschrieben, gelesen wurde elementweise. Er passte damit auf nichts — und der Parser meldete Erfolg und lieferte ein sauberes Objekt, in dem alles null war. Kein Fehler, keine Ausnahme, keine leere Antwort</td></tr>
+        <tr><td>Ratenbegrenzung durch den Server</td><td>Dreißig Einzelabrufe je Runde statt einer gebündelten Anfrage</td></tr>
+        <tr><td>Halbzeit-Erkennung schlug fehl, nachdem das Gateway die Antworten kürzte</td><td>Die Kürzung entfernte genau die Zeile, auf der die Erkennung beruht</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <p>Der letzte Fall ist der lehrreichste: Eine Optimierung auf dem Gateway — Antworten kürzen, um Speicher zu sparen — nahm dem Gerät eine Information weg, von der das Gateway nichts wusste. <strong>Wer im Gateway kürzt, braucht ein Verzeichnis dessen, was der Knoten tatsächlich liest</strong> — sonst ist die Optimierung eine Regression, die niemand ihr zuordnet.</p>
+  </div>
+
+  <h2 id="s9"><span class="num">Abschnitt 09</span>Grenzen dieses Berichts</h2>
+  <div class="col">
+    <p>Damit die Zahlen richtig eingeordnet werden:</p>
+    <ul>
+      <li>Es ist <strong>ein</strong> Gerät, kein Feld. Aussagen über Streuung zwischen Exemplaren gibt es nicht.</li>
+      <li>Die Quellen sind fremde Dienste ohne Zusicherungen. Was heute gemessen wurde, kann morgen anders sein; mehrere der oben genannten Eigenheiten haben sich im Beobachtungszeitraum geändert.</li>
+      <li>Es gibt <strong>keinen Vergleich gegen Alternativen</strong>. Ob eine andere Parser-Bibliothek oder ein anderer Netzwerk-Stack besser abgeschnitten hätte, wurde nicht untersucht.</li>
+      <li>Die Messungen stammen aus dem Protokoll des Geräts selbst. Sie sind damit so gut wie dessen Instrumentierung — und die wurde mehrfach korrigiert, weil sie Zahlen zeigte, die zueinander nicht passten.</li>
+    </ul>
+  </div>
+
+  <h2 id="s10"><span class="num">Abschnitt 10</span>Was übertragbar ist</h2>
+  <div class="col">
+    <p>Für andere vernetzte Geräte, die Zustände aus fremden Systemen abbilden:</p>
+    <ol>
+      <li><strong>Der größte freie Block ist die Kennzahl, nicht der freie Speicher.</strong> Auf einem Gerät ohne Speicherverwaltung entscheidet Fragmentierung, und sie steht in keiner der üblichen Statistiken.</li>
+      <li><strong>Netzwerktreiber sind stille Großverbraucher.</strong> Ihre Puffergrößen gehören zur Auslegung des Geräts, nicht in die Voreinstellungen des Herstellers.</li>
+      <li><strong>Eine Abtastrate ist eine Entwurfsentscheidung, kein Parameter.</strong> Der Faktor zwischen Ruhe und Ereignis kann drei Größenordnungen betragen; ein fester Takt verschenkt eine davon.</li>
+      <li><strong>Ein Gateway ist die Stelle, an der Heterogenität stirbt.</strong> Jede Fallunterscheidung dort kostet nichts; im Knoten kostet sie Speicher, den er nicht hat.</li>
+      <li><strong>Wer im Gateway kürzt, braucht ein Verzeichnis dessen, was der Knoten liest.</strong> Sonst ist die Ersparnis eine Regression, die niemand einer Optimierung zuordnet.</li>
+      <li><strong>Zustand und Übergang sind zweierlei</strong>, und ein Übergang gehört an genau eine Stelle. Selbstgebaute Erkennung an vier Stellen ergibt vier verschiedene Wahrheiten.</li>
+      <li><strong>Wiedergabe schlägt Warten.</strong> Wer Ereignisse aus der echten Welt verarbeitet, braucht eine Aufzeichnung — sonst prüft er nie, sondern hofft.</li>
+    </ol>
+  </div>
+
+  <div class="endnote col">
+    <p>Dieser Bericht beschreibt ein privates Projekt. Die Zahlen stammen aus dem laufenden Betrieb; Quelle und Methodik sind jeweils genannt. Wo nichts gemessen wurde, steht es dabei.</p>
+    <p>Die beiden Datenquellen sind bewusst nur als <em>A</em> und <em>B</em> geführt: Der Bericht handelt von der Technik, nicht von den Anbietern.</p>
+  </div>
+
+</div>
+</body>
+</html>
