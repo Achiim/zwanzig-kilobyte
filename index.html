@@ -207,6 +207,16 @@
     color:var(--board-dim);
   }
 
+  /* ---------- Kapitelbilder ---------- */
+  .kapitelbild{
+    display:block;
+    height:72px;
+    width:auto;
+    max-width:100%;
+    margin:0 0 .9rem;
+  }
+  @media (max-width:34rem){ .kapitelbild{height:56px} }
+
   /* ---------- Inhalt ---------- */
   h2{
     font-family:var(--f-display);
@@ -495,7 +505,7 @@
     </div>
   </div>
 
-  <h2 id="s3"><span class="num">Abschnitt 03</span>Die Speicherdecke</h2>
+  <h2 id="s3"><img class="kapitelbild" src="kapitel-03.webp" width="213" height="160" alt="Die Speicherdecke" loading="lazy" decoding="async"><span class="num">Abschnitt 03</span>Die Speicherdecke</h2>
   <div class="col">
     <p>Das Gerät hat rund <strong>225 kB statisch belegtes DRAM</strong>. Vom Rest bleiben im Live-Betrieb typischerweise <strong>rund 20 kB frei</strong> — in einer durchgemessenen Stunde <strong>20.328 Byte</strong>. Die Zahl, auf die es ankommt, ist aber eine andere: Der <strong>größte zusammenhängende freie Block</strong> lag zur selben Zeit bei <strong>17.396 Byte</strong>.</p>
 
@@ -622,7 +632,7 @@
     <p>Wer also Abruf an Abruf reiht, bekommt jedes Mal den billigen Fall — und hält ihn für den teuren. <strong>Der teure Fall braucht eine Pause, kein Gedränge.</strong></p>
   </div>
 
-  <h2 id="s4"><span class="num">Abschnitt 04</span>Adaptive Abtastung</h2>
+  <h2 id="s4"><img class="kapitelbild" src="kapitel-04.webp" width="396" height="160" alt="Adaptive Abtastung" loading="lazy" decoding="async"><span class="num">Abschnitt 04</span>Adaptive Abtastung</h2>
   <div class="col">
     <h3><span class="sub">4.1</span>Drei Takte</h3>
   </div>
@@ -668,7 +678,7 @@
     <p>Die Quelle liefert je Datensatz einen Änderungszeitstempel. Bleibt er gleich, entfällt der große Abruf vollständig. Das Gerät hält zusätzlich ein Gedächtnis über bereits besuchte Spieltage, sodass das Zurückblättern in bekannte Daten ohne jeden Netzzugriff auskommt.</p>
   </div>
 
-  <h2 id="s5"><span class="num">Abschnitt 05</span>Quellenfusion</h2>
+  <h2 id="s5"><img class="kapitelbild" src="kapitel-05.webp" width="958" height="160" alt="Quellenfusion" loading="lazy" decoding="async"><span class="num">Abschnitt 05</span>Quellenfusion</h2>
   <div class="col">
     <p>Es gibt zwei Quellen. Die naheliegende Lösung wäre, je Wettbewerb eine auszuwählen. Sie ist falsch.</p>
 
@@ -707,7 +717,7 @@
     <p>Daraus folgte ein Schalter <strong>je Wettbewerb</strong> statt eines globalen. Ein globaler Schalter hätte zwei Fehler zugleich gemacht: die gute Quelle verschenkt und der schlechten geglaubt.</p>
   </div>
 
-  <h2 id="s6"><span class="num">Abschnitt 06</span>Zustand statt nachgebauter Erkennung</h2>
+  <h2 id="s6"><img class="kapitelbild" src="kapitel-06.webp" width="388" height="160" alt="Zustand und Übergang" loading="lazy" decoding="async"><span class="num">Abschnitt 06</span>Zustand statt nachgebauter Erkennung</h2>
   <div class="col">
     <p>Die erste Umsetzung ließ jede interessierte Stelle selbst erkennen, ob sich etwas geändert hatte — der Signalgeber, die Animation, die Halbzeit-Erkennung, die Anzeige. Jede merkte sich einen eigenen Vorzustand. Das führte zu den bekannten Folgen: doppelte Auslösungen, ausbleibende Auslösungen, und vier Stellen, die zu unterschiedlichen Ergebnissen kamen.</p>
 
@@ -744,7 +754,7 @@
     </div>
   </div>
 
-  <h2 id="s7"><span class="num">Abschnitt 07</span>Methodik: Wiedergabe statt Warten</h2>
+  <h2 id="s7"><img class="kapitelbild" src="kapitel-07.webp" width="391" height="160" alt="Wiedergabe statt Warten" loading="lazy" decoding="async"><span class="num">Abschnitt 07</span>Methodik: Wiedergabe statt Warten</h2>
   <div class="col">
     <p>Der schwierigste Teil bei einem Gerät, das auf Ereignisse in der echten Welt reagiert, ist die Prüfung. Live-Verhalten lässt sich nur live beobachten — und live ist zweimal die Woche für neunzig Minuten.</p>
 
@@ -814,6 +824,7 @@
   <div class="endnote col">
     <p>Dieser Bericht beschreibt ein privates Projekt. Die Zahlen stammen aus dem laufenden Betrieb; Quelle und Methodik sind jeweils genannt. Wo nichts gemessen wurde, steht es dabei.</p>
     <p>Die beiden Datenquellen sind bewusst nur als <em>A</em> und <em>B</em> geführt: Der Bericht handelt von der Technik, nicht von den Anbietern.</p>
+    <p>Die Kapitelbilder sind mit einem Bildgenerator erzeugt und für diese Seite zugeschnitten. Beim Verfassen des Textes war ein Sprachmodell beteiligt; Messungen, Entscheidungen und Fehlschläge stammen aus dem Betrieb des Geräts.</p>
   </div>
 
 </div>
