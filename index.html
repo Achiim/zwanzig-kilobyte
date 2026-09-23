@@ -299,6 +299,10 @@
     border-radius:2px;
   }
 
+  /* ---------- Zeichnungen ---------- */
+  .panel.zeichnung{padding:14px 16px;overflow:visible}
+  .panel.zeichnung svg{display:block;width:100%;height:auto}
+
   /* ---------- Merksätze ---------- */
   .lesson{
     background:var(--surface);
@@ -479,12 +483,15 @@
 
   <h2 id="s2"><span class="num">Abschnitt 02</span>Aufbau</h2>
 
-  <div class="panel"><pre>┌─────────────────┐     WLAN/TLS      ┌────────────────────┐    HTTPS   ┌──────────┐
-│  ESP32          │ ────────────────► │  Gateway (NUC)     │ ─────────► │ Quelle A │
-│  20× ST7735     │                   │  nginx +           │            └──────────┘
-│  10× 74HC595    │                   │  Schemaübersetzer  │ ─────────► ┌──────────┐
-│  IR-Empfänger   │                   │  NTP (chrony)      │            │ Quelle B │
-└─────────────────┘                   └────────────────────┘            └──────────┘</pre></div>
+  <div class="panel zeichnung"><svg viewBox="0 0 880 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Aufbau: Geraet, Gateway und die beiden Quellen" font-family="ui-monospace,Consolas,monospace"><defs>
+  <filter id="gla" x="-30%" y="-60%" width="160%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="bala" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7A3F08"/><stop offset="1" stop-color="#E8912F"/>
+  </linearGradient>
+</defs><rect x="16" y="42" width="224" height="126" rx="3" fill="#1E1408" stroke="#E8912F" stroke-width="2" filter="url(#gla)"/><text x="128" y="70" fill="#E8912F" font-size="17" text-anchor="middle" font-weight="600">ESP32</text><text x="128" y="96" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">20 × ST7735</text><text x="128" y="118" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">10 × 74HC595</text><text x="128" y="140" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">IR-Empfänger</text><g filter="url(#gla)"><line x1="240" y1="105" x2="321" y2="105" stroke="#E8912F" stroke-width="2.5"/><path d="M330 105 l-9 -5 l0 10 z" fill="#E8912F"/></g><text x="285" y="92" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">WLAN / TLS</text><rect x="330" y="42" width="236" height="126" rx="3" fill="#1E1408" stroke="#E8912F" stroke-width="2" filter="url(#gla)"/><text x="448" y="70" fill="#E8912F" font-size="17" text-anchor="middle" font-weight="600">Gateway</text><text x="448" y="96" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">nginx</text><text x="448" y="118" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">Schemaübersetzer</text><text x="448" y="140" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">NTP</text><g filter="url(#gla)"><line x1="566" y1="78" x2="659" y2="78" stroke="#E8912F" stroke-width="2.5"/><path d="M668 78 l-9 -5 l0 10 z" fill="#E8912F"/></g><g filter="url(#gla)"><line x1="566" y1="132" x2="659" y2="132" stroke="#E8912F" stroke-width="2.5"/><path d="M668 132 l-9 -5 l0 10 z" fill="#E8912F"/></g><text x="617" y="64" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">HTTPS</text><rect x="668" y="54" width="196" height="48" rx="3" fill="#1E1408" stroke="#E8912F" stroke-width="2" filter="url(#gla)"/><text x="766" y="84" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="400">Quelle A</text><rect x="668" y="108" width="196" height="48" rx="3" fill="#1E1408" stroke="#E8912F" stroke-width="2" filter="url(#gla)"/><text x="766" y="138" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="400">Quelle B</text></svg></div>
 
   <div class="col">
     <p><strong>Das Gerät</strong> ist ein ESP32 mit einem einzigen SPI-Bus für alle zwanzig Panels. Die Chip-Select-Leitungen erzeugt eine Kette aus zehn Schieberegistern (74HC595) — zwanzig einzelne Leitungen wären am Controller nicht unterzubringen. Ein Nebeneffekt dieser Bauweise: Ein Bitfehler in der Kette verschiebt <em>alle</em> nachfolgenden Auswahlen, weshalb die Kette turnusmäßig neu beschrieben wird, auch wenn sich nichts geändert hat.</p>
@@ -516,13 +523,15 @@
     <p>Im Betrieb werden laufend Blöcke belegt und wieder freigegeben. Was zurückbleibt, ist kein leerer Raum, sondern ein durchlöcherter — freie und belegte Bereiche wechseln sich ab. Das nennt man <strong>Fragmentierung</strong>:</p>
   </div>
 
-  <div class="panel"><pre>  frei insgesamt: 20 kB                 groesster Block: 17 kB
-  ┌────────────────────┬────────┬────┬────────┬────┐
-  │     17 kB frei     │ belegt │ 2k │ belegt │ 1k │
-  └────────────────────┴────────┴────┴────────┴────┘
-                                 ▲              ▲
-                        diese 3 kB zaehlen als "frei" mit,
-                        sind fuer einen 4-kB-Puffer aber wertlos</pre></div>
+  <div class="panel zeichnung"><svg viewBox="0 0 880 236" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fragmentierung: 20 kB frei, groesster Block 17 kB" font-family="ui-monospace,Consolas,monospace"><defs>
+  <filter id="glf" x="-30%" y="-60%" width="160%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="balf" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7A3F08"/><stop offset="1" stop-color="#E8912F"/>
+  </linearGradient>
+</defs><text x="16" y="30" fill="#8A93A2" font-size="14" text-anchor="start" font-weight="400">frei insgesamt:</text><text x="150" y="30" fill="#E8912F" font-size="14" text-anchor="start" font-weight="600">20 kB</text><text x="430" y="30" fill="#8A93A2" font-size="14" text-anchor="start" font-weight="400">größter Block:</text><text x="560" y="30" fill="#E8912F" font-size="14" text-anchor="start" font-weight="600">17 kB</text><rect x="16" y="54" width="300" height="62" rx="3" fill="#2A1A08" stroke="#E8912F" stroke-width="2" filter="url(#glf)"/><text x="166" y="92" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="600">17 kB frei</text><rect x="320" y="54" width="120" height="62" rx="3" fill="#141414" stroke="#B3670F" stroke-width="2" filter="url(#glf)"/><text x="380" y="92" fill="#8A93A2" font-size="15" text-anchor="middle" font-weight="400">belegt</text><rect x="444" y="54" width="68" height="62" rx="3" fill="#2A1A08" stroke="#E8912F" stroke-width="2" filter="url(#glf)"/><text x="478" y="92" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="600">2k</text><rect x="516" y="54" width="120" height="62" rx="3" fill="#141414" stroke="#B3670F" stroke-width="2" filter="url(#glf)"/><text x="576" y="92" fill="#8A93A2" font-size="15" text-anchor="middle" font-weight="400">belegt</text><rect x="640" y="54" width="68" height="62" rx="3" fill="#2A1A08" stroke="#E8912F" stroke-width="2" filter="url(#glf)"/><text x="674" y="92" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="600">1k</text><g filter="url(#glf)"><path d="M478 128 l-7 -12 l14 0 z" fill="#E8912F"/><path d="M674 128 l-7 -12 l14 0 z" fill="#E8912F"/></g><text x="440" y="168" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="400">diese 3 kB zählen als „frei“ mit,</text><text x="440" y="192" fill="#E8912F" font-size="15" text-anchor="middle" font-weight="400">sind für einen 4-kB-Puffer aber wertlos</text></svg></div>
 
   <div class="col">
     <p>Auf einem PC merkt man davon nichts: Dort setzt eine Speicherverwaltungseinheit in der Hardware verstreute Seiten zu einem zusammenhängenden Bereich zusammen, und die Anwendung sieht nur den fertigen Block. <strong>Ein ESP32 hat diese Einheit nicht.</strong> Was im physischen Speicher zerstückelt ist, bleibt zerstückelt. Ein freigegebener Block hilft nur dann, wenn er zufällig an einen anderen freien grenzt.</p>
@@ -534,12 +543,15 @@
     <p>An diesem Gerät liegen die <strong>Stapelspeicher der Tasks in einer anderen Region als der große freie Block</strong> — <code>0x3ffe0440</code> gegenüber <code>0x3ffe4350</code>. Ein Vorschlag, einen Task-Stack um 2 kB zu verkleinern, hätte den nutzbaren Block deshalb <strong>um kein einziges Byte vergrößert</strong>. Er hätte nur den Stack an den Rand des Überlaufs gebracht:</p>
   </div>
 
-  <div class="panel"><pre>  Region 1  (0x3ffe0440)        Region 2  (0x3ffe4350)
-  ┌───────────────────────┐     ┌───────────────────────┐
-  │ Task-Stacks, randvoll │     │   der grosse freie    │
-  │                       │     │        Block          │
-  └───────────────────────┘     └───────────────────────┘
-        hier 2 kB sparen  ──✗──►  vergroessert hier nichts</pre></div>
+  <div class="panel zeichnung"><svg viewBox="0 0 880 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Zwei getrennte Speicherregionen" font-family="ui-monospace,Consolas,monospace"><defs>
+  <filter id="glr" x="-30%" y="-60%" width="160%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="balr" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7A3F08"/><stop offset="1" stop-color="#E8912F"/>
+  </linearGradient>
+</defs><text x="190" y="34" fill="#E8912F" font-size="15" text-anchor="middle" font-weight="600">Region 1</text><text x="190" y="54" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">0x3ffe0440</text><text x="690" y="34" fill="#E8912F" font-size="15" text-anchor="middle" font-weight="600">Region 2</text><text x="690" y="54" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">0x3ffe4350</text><rect x="60" y="72" width="260" height="76" rx="3" fill="#141414" stroke="#B3670F" stroke-width="2" filter="url(#glr)"/><text x="190" y="118" fill="#8A93A2" font-size="15" text-anchor="middle" font-weight="400">Task-Stacks, randvoll</text><rect x="560" y="72" width="260" height="76" rx="3" fill="#2A1A08" stroke="#E8912F" stroke-width="2" filter="url(#glr)"/><text x="690" y="118" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="600">der große freie Block</text><g filter="url(#glr)"><line x1="330" y1="110" x2="540" y2="110" stroke="#B3670F" stroke-width="2.5" stroke-dasharray="7 7"/></g><g stroke="#D8452B" stroke-width="4" stroke-linecap="round"><line x1="418" y1="96" x2="452" y2="124"/><line x1="452" y1="96" x2="418" y2="124"/></g><text x="440" y="178" fill="#8A93A2" font-size="15" text-anchor="middle" font-weight="400">hier 2 kB sparen vergrößert dort nichts</text></svg></div>
 
   <div class="col">
     <p>Wer auf so einem Gerät Speicher sucht, muss also wissen, <strong>wo</strong> er frei wird, nicht nur wie viel.</p>
@@ -583,19 +595,15 @@
     <p>Stattdessen wird <strong>immer nur ein einzelner Eintrag zugleich abgelegt</strong> — im Beispiel unten eine Partie. Ein <strong>Filter</strong> legt dabei fest, welche Felder eines Eintrags überhaupt übernommen werden; alles andere überliest der Parser, ohne dafür Speicher zu belegen:</p>
   </div>
 
-  <div class="panel"><pre>  JSON-Dokument                 Ablage im RAM
-  als HTTP-Strom                (8 kB, EINMAL angelegt)
-  ┌──────────────┐
-  │ [ Partie 1,  │──► Filter ──►┌─────────────┐
-  │   Partie 2,  │              │  Partie 1   │──► Rueckruf: Werte in die
-  │   Partie 3,  │              └─────────────┘    eigenen Strukturen holen
-  │   …          │                     │
-  │   Partie 31 ]│              geleert, wiederverwendet
-  └──────────────┘                     │
-    78 kB, nie                         ▼
-    am Stueck im            ┌─────────────┐
-    Speicher                │  Partie 2   │──► Rueckruf …
-                            └─────────────┘</pre></div>
+  <div class="panel zeichnung"><svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Elementweises Lesen: ein Eintrag zugleich in einer geteilten Ablage" font-family="ui-monospace,Consolas,monospace"><defs>
+  <filter id="gle" x="-30%" y="-60%" width="160%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="bale" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7A3F08"/><stop offset="1" stop-color="#E8912F"/>
+  </linearGradient>
+</defs><text x="24" y="26" fill="#8A93A2" font-size="13" text-anchor="start" font-weight="400">JSON-Dokument als HTTP-Strom</text><text x="516" y="26" fill="#E8912F" font-size="13" text-anchor="start" font-weight="600">Ablage im RAM</text><text x="516" y="46" fill="#8A93A2" font-size="12" text-anchor="start" font-weight="400">8 kB, EINMAL angelegt</text><rect x="24" y="44" width="200" height="186" rx="3" fill="none" stroke="#B3670F" stroke-width="1.5" stroke-dasharray="4 5"/><rect x="36" y="56" width="176" height="27" rx="3" fill="#1A1206" stroke="#B3670F" stroke-width="1.5" filter="url(#gle)"/><text x="124" y="75" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Partie 1</text><rect x="36" y="91" width="176" height="27" rx="3" fill="#1A1206" stroke="#B3670F" stroke-width="1.5" filter="url(#gle)"/><text x="124" y="110" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Partie 2</text><rect x="36" y="126" width="176" height="27" rx="3" fill="#1A1206" stroke="#B3670F" stroke-width="1.5" filter="url(#gle)"/><text x="124" y="145" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Partie 3</text><rect x="36" y="161" width="176" height="27" rx="3" fill="#1A1206" stroke="#B3670F" stroke-width="1.5" filter="url(#gle)"/><text x="124" y="180" fill="#8A93A2" font-size="14" text-anchor="middle" font-weight="400">…</text><rect x="36" y="196" width="176" height="27" rx="3" fill="#1A1206" stroke="#B3670F" stroke-width="1.5" filter="url(#gle)"/><text x="124" y="215" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Partie 31</text><text x="124" y="254" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">78 kB — nie am Stück im Speicher</text><g filter="url(#gle)"><line x1="232" y1="86" x2="321" y2="86" stroke="#E8912F" stroke-width="2.5"/><path d="M330 86 l-9 -5 l0 10 z" fill="#E8912F"/></g><text x="281" y="76" fill="#E8912F" font-size="12" text-anchor="middle" font-weight="600">Filter</text><rect x="340" y="62" width="200" height="48" rx="3" fill="#1E1408" stroke="#E8912F" stroke-width="2" filter="url(#gle)"/><text x="440" y="92" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="600">Partie 1</text><g filter="url(#gle)"><line x1="548" y1="86" x2="615" y2="86" stroke="#E8912F" stroke-width="2.5"/><path d="M624 86 l-9 -5 l0 10 z" fill="#E8912F"/></g><text x="636" y="82" fill="#E9EBEF" font-size="13" text-anchor="start" font-weight="400">Rückruf: Werte in die</text><text x="636" y="100" fill="#8A93A2" font-size="13" text-anchor="start" font-weight="400">eigenen Strukturen holen</text><g filter="url(#gle)"><line x1="440" y1="118" x2="440" y2="163" stroke="#E8912F" stroke-width="2.5"/><path d="M440 172 l-5 -9 l10 0 z" fill="#E8912F"/></g><text x="456" y="150" fill="#E8912F" font-size="12" text-anchor="start" font-weight="400">geleert, wiederverwendet</text><rect x="340" y="178" width="200" height="48" rx="3" fill="#1A1206" stroke="#B3670F" stroke-width="2" filter="url(#gle)"/><text x="440" y="208" fill="#E9EBEF" font-size="15" text-anchor="middle" font-weight="400">Partie 2</text><g filter="url(#gle)"><line x1="548" y1="202" x2="615" y2="202" stroke="#B3670F" stroke-width="2.5"/><path d="M624 202 l-9 -5 l0 10 z" fill="#B3670F"/></g><text x="636" y="207" fill="#8A93A2" font-size="13" text-anchor="start" font-weight="400">Rückruf …</text></svg></div>
 
   <div class="col">
     <p>Damit hängt der Speicherbedarf <strong>nicht mehr an der Größe des Dokuments</strong>, sondern nur noch am <strong>größten einzelnen Eintrag</strong>. Ob eine Runde drei oder einunddreißig Partien enthält, ändert am Bedarf nichts — und das ist der eigentliche Gewinn: Die Auslegung wird unabhängig von einer Zahl, über die das Gerät nicht bestimmt. Dieselbe Ablage trägt deshalb auch alle anderen Abrufarten aus der Tabelle oben, ohne dass eine davon eine eigene bekommt.</p>
@@ -648,14 +656,15 @@
     </table>
   </div>
 
-  <div class="panel"><pre>      Ruhe             Vorlauf                  Live                    Ruhe
- ├───────────────┼─────────────────┼──────────────────────────────┼───────────────
- │   1 Stunde    │    1 Minute     │        20 Sekunden           │   1 Stunde
- │   ·       ·   │  · · · · · · ·  │ ············· ·············· │   ·       ·
- └───────────────┴─────────────────┴──────────────────────────────┴───────────────
-                 ▲                 ▲                              ▲
-        Anstoss rueckt in       Anpfiff                        Abpfiff
-        Sichtweite</pre></div>
+  <div class="panel zeichnung"><svg viewBox="0 0 880 224" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Drei Abtasttakte rund um eine Partie" font-family="ui-monospace,Consolas,monospace"><defs>
+  <filter id="glk" x="-30%" y="-60%" width="160%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="balk" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7A3F08"/><stop offset="1" stop-color="#E8912F"/>
+  </linearGradient>
+</defs><rect x="24" y="46" width="186" height="72" rx="3" fill="#161208" stroke="#B3670F" stroke-width="2" filter="url(#glk)"/><text x="117" y="32" fill="#8A93A2" font-size="14" text-anchor="middle" font-weight="600">Ruhe</text><text x="117" y="89" fill="#8A93A2" font-size="16" text-anchor="middle" font-weight="400">1 Stunde</text><rect x="210" y="46" width="150" height="72" rx="3" fill="#161208" stroke="#B3670F" stroke-width="2" filter="url(#glk)"/><text x="285" y="32" fill="#8A93A2" font-size="14" text-anchor="middle" font-weight="600">Vorlauf</text><text x="285" y="89" fill="#8A93A2" font-size="16" text-anchor="middle" font-weight="400">1 Minute</text><rect x="360" y="46" width="320" height="72" rx="3" fill="#2A1A08" stroke="#E8912F" stroke-width="2" filter="url(#glk)"/><text x="520" y="32" fill="#E8912F" font-size="14" text-anchor="middle" font-weight="600">Live</text><text x="520" y="89" fill="#E9EBEF" font-size="16" text-anchor="middle" font-weight="600">20 Sekunden</text><rect x="680" y="46" width="176" height="72" rx="3" fill="#161208" stroke="#B3670F" stroke-width="2" filter="url(#glk)"/><text x="768" y="32" fill="#8A93A2" font-size="14" text-anchor="middle" font-weight="600">Ruhe</text><text x="768" y="89" fill="#8A93A2" font-size="16" text-anchor="middle" font-weight="400">1 Stunde</text><line x1="210" y1="118" x2="210" y2="146" stroke="#E8912F" stroke-width="2"/><circle cx="210" cy="118" r="4" fill="#E8912F" filter="url(#glk)"/><text x="210" y="166" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">Anstoß rückt</text><text x="210" y="184" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">in Sichtweite</text><line x1="360" y1="118" x2="360" y2="146" stroke="#E8912F" stroke-width="2"/><circle cx="360" cy="118" r="4" fill="#E8912F" filter="url(#glk)"/><text x="360" y="166" fill="#E9EBEF" font-size="13" text-anchor="middle" font-weight="400">Anpfiff</text><line x1="680" y1="118" x2="680" y2="146" stroke="#E8912F" stroke-width="2"/><circle cx="680" cy="118" r="4" fill="#E8912F" filter="url(#glk)"/><text x="680" y="166" fill="#E9EBEF" font-size="13" text-anchor="middle" font-weight="400">Abpfiff</text><text x="440" y="212" fill="#8A93A2" font-size="13" text-anchor="middle" font-weight="400">Faktor 180 zwischen Ruhe und Live</text></svg></div>
 
   <div class="col">
     <p>Der Faktor zwischen Ruhe und Live ist <strong>180</strong>. Ein fester Takt müsste sich für einen der beiden Fälle entscheiden und wäre entweder verschwenderisch oder zu langsam.</p>
@@ -729,19 +738,15 @@
     </ol>
   </div>
 
-  <div class="panel"><pre> Zustaende         Vor ─────── Laeuft ─────── Pause ─────── Laeuft ─────── Ende
- (was gilt)              ▲            ▲             ▲              ▲
-                         │            │             │              │
- Uebergaenge          Anpfiff    Pausenpfiff   Wiederanpfiff    Abpfiff
- (was gerade             │            │             │              │
-  passiert ist)          └────────────┴──────┬──────┴──────────────┘
-                                             ▼
-                                        EINE Queue
-                                             │
-                     ┌──────────┬────────────┼────────────┬──────────┐
-                     ▼          ▼            ▼            ▼          ▼
-                  Buzzer   Tabellen-     Halbzeit-      Board    Log/Diagnose
-                           animation     Anzeige</pre></div>
+  <div class="panel zeichnung"><svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Zustaende, Uebergaenge, eine Queue und ihre Verbraucher" font-family="ui-monospace,Consolas,monospace"><defs>
+  <filter id="glz" x="-30%" y="-60%" width="160%" height="220%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="balz" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7A3F08"/><stop offset="1" stop-color="#E8912F"/>
+  </linearGradient>
+</defs><text x="24" y="24" fill="#8A93A2" font-size="11" text-anchor="start" font-weight="400">ZUSTÄNDE — was gilt</text><rect x="30" y="34" width="140" height="38" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="100" y="59" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Vor</text><rect x="200" y="34" width="140" height="38" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="270" y="59" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Läuft</text><rect x="370" y="34" width="140" height="38" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="440" y="59" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Pause</text><rect x="540" y="34" width="140" height="38" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="610" y="59" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Läuft</text><rect x="710" y="34" width="140" height="38" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="780" y="59" fill="#E9EBEF" font-size="14" text-anchor="middle" font-weight="400">Ende</text><line x1="170" y1="72" x2="170" y2="96" stroke="#E8912F" stroke-width="2"/><text x="170" y="116" fill="#E8912F" font-size="13" text-anchor="middle" font-weight="600">Anpfiff</text><line x1="340" y1="72" x2="340" y2="96" stroke="#E8912F" stroke-width="2"/><text x="340" y="116" fill="#E8912F" font-size="13" text-anchor="middle" font-weight="600">Pausenpfiff</text><line x1="510" y1="72" x2="510" y2="96" stroke="#E8912F" stroke-width="2"/><text x="510" y="116" fill="#E8912F" font-size="13" text-anchor="middle" font-weight="600">Wiederanpfiff</text><line x1="680" y1="72" x2="680" y2="96" stroke="#E8912F" stroke-width="2"/><text x="680" y="116" fill="#E8912F" font-size="13" text-anchor="middle" font-weight="600">Abpfiff</text><text x="24" y="146" fill="#8A93A2" font-size="11" text-anchor="start" font-weight="400">ÜBERGÄNGE — was gerade passiert ist</text><path d="M170 128 L440 158 L680 128" fill="none" stroke="#E8912F" stroke-width="2" filter="url(#glz)"/><g filter="url(#glz)"><line x1="440" y1="158" x2="440" y2="179" stroke="#E8912F" stroke-width="2.5"/><path d="M440 188 l-5 -9 l10 0 z" fill="#E8912F"/></g><rect x="350" y="190" width="180" height="42" rx="3" fill="#1E1408" stroke="#E8912F" stroke-width="2" filter="url(#glz)"/><text x="440" y="217" fill="#E8912F" font-size="15" text-anchor="middle" font-weight="600">EINE Queue</text><path d="M110 248 L440 248" fill="none" stroke="#B3670F" stroke-width="2"/><path d="M440 248 L774 248" fill="none" stroke="#B3670F" stroke-width="2"/><line x1="440" y1="232" x2="440" y2="248" stroke="#B3670F" stroke-width="2"/><g filter="url(#glz)"><line x1="108" y1="248" x2="108" y2="267" stroke="#B3670F" stroke-width="2.5"/><path d="M108 276 l-5 -9 l10 0 z" fill="#B3670F"/></g><rect x="30" y="276" width="156" height="36" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="108" y="299" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">Buzzer</text><g filter="url(#glz)"><line x1="274" y1="248" x2="274" y2="267" stroke="#B3670F" stroke-width="2.5"/><path d="M274 276 l-5 -9 l10 0 z" fill="#B3670F"/></g><rect x="196" y="276" width="156" height="36" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="274" y="299" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">Tabellenanimation</text><g filter="url(#glz)"><line x1="440" y1="248" x2="440" y2="267" stroke="#B3670F" stroke-width="2.5"/><path d="M440 276 l-5 -9 l10 0 z" fill="#B3670F"/></g><rect x="362" y="276" width="156" height="36" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="440" y="299" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">Halbzeit-Anzeige</text><g filter="url(#glz)"><line x1="606" y1="248" x2="606" y2="267" stroke="#B3670F" stroke-width="2.5"/><path d="M606 276 l-5 -9 l10 0 z" fill="#B3670F"/></g><rect x="528" y="276" width="156" height="36" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="606" y="299" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">Board</text><g filter="url(#glz)"><line x1="772" y1="248" x2="772" y2="267" stroke="#B3670F" stroke-width="2.5"/><path d="M772 276 l-5 -9 l10 0 z" fill="#B3670F"/></g><rect x="694" y="276" width="156" height="36" rx="3" fill="#161208" stroke="#B3670F" stroke-width="1.5" filter="url(#glz)"/><text x="772" y="299" fill="#8A93A2" font-size="12" text-anchor="middle" font-weight="400">Log</text></svg></div>
 
   <div class="col">
     <p>Damit feuert ein Übergang <strong>von Bauart her genau einmal</strong>. Vorher musste das jede Stelle für sich sicherstellen — und eine davon tat es nicht.</p>
