@@ -371,6 +371,10 @@
     counter-increment:toc;
     font-family:var(--f-display);
     font-size:.9375rem;
+    /* Laengenbudget: Bei drei Spalten auf 60rem fasst eine Spalte rund 24 Zeichen.
+       Laenger bricht um, und ein Umbruch verschiebt die ganze Zeile des Rasters.
+       Die Ueberschrift im Text darf laenger sein, der Eintrag hier nicht.
+       Laengster Eintrag zurzeit: "Wiedergabe statt Warten" (23). */
   }
   .toc li::before{
     content:counter(toc,decimal-leading-zero);
@@ -430,7 +434,7 @@
       <li><a href="#s3">Die Speicherdecke</a></li>
       <li><a href="#s4">Adaptive Abtastung</a></li>
       <li><a href="#s5">Quellenfusion</a></li>
-      <li><a href="#s6">Zustand statt nachgebauter Erkennung</a></li>
+      <li><a href="#s6">Zustand und Übergang</a></li>
       <li><a href="#s7">Wiedergabe statt Warten</a></li>
       <li><a href="#s8">Was schiefging</a></li>
       <li><a href="#s9">Grenzen dieses Berichts</a></li>
