@@ -1,3 +1,4 @@
-# Die unbearbeiteten Vorlagen der Kapitelbilder bleiben lokal:
-# veroeffentlicht wird nur der Zuschnitt (kapitel-*.webp).
+# Unbearbeitete Vorlagen bleiben lokal -- veroeffentlicht wird nur, was
+# fuer die Seite hergerichtet ist (kapitel-*.webp, wand-*.jpg).
 0*.png
+DieWand.jpeg

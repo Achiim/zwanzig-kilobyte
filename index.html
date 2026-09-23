@@ -8,7 +8,7 @@
 <meta property="og:title" content="Zwanzig Panels auf zwanzig Kilobyte">
 <meta property="og:description" content="Adaptive Abtastung, Quellenfusion und Speicherdisziplin auf einem ESP32 mit 20 kB freiem Heap — gemessene Zahlen und die Fehlschläge, die dorthin geführt haben.">
 <meta property="og:url" content="https://achiim.github.io/zwanzig-kilobyte/">
-<meta property="og:image" content="https://achiim.github.io/zwanzig-kilobyte/vorschau.png">
+<meta property="og:image" content="https://achiim.github.io/zwanzig-kilobyte/wand-karte.jpg">
 <meta property="og:locale" content="de_DE">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -164,6 +164,17 @@
     color:var(--board-dim);
     margin:0;
     max-width:44ch;
+  }
+
+  /* ---------- Foto ---------- */
+  figure.foto{margin:0 0 2.5rem}
+  figure.foto img{display:block;width:100%;height:auto;border-radius:3px}
+  figure.foto figcaption{
+    margin-top:.65rem;
+    font-family:var(--f-mono);
+    font-size:.75rem;
+    line-height:1.55;
+    color:var(--muted);
   }
 
   /* ---------- Messwert-Kacheln ---------- */
@@ -432,6 +443,12 @@
     <h1>Zwanzig Panels auf zwanzig Kilobyte</h1>
     <p>Adaptive Abtastung, Quellenfusion und Speicherdisziplin auf einem ESP32 — was gemessen wurde, und was dabei schiefging.</p>
   </header>
+
+  <figure class="foto">
+    <img src="wand-foto.jpg" width="2000" height="650" decoding="async"
+         alt="Zwanzig kleine Displays in zwei Reihen auf gruenen Platinen, jedes zeigt ein Vereinswappen mit Tordifferenz und Punkten.">
+    <figcaption>Zehn Module zu je zwei Panels, hier mit der Tabelle der 1. Bundesliga. Die beiden rechten Displays zeigen das Ligalogo — achtzehn Mannschaften auf zwanzig Plätzen.</figcaption>
+  </figure>
 
   <div class="tiles">
     <div class="tile"><b>20.328 B</b><span>frei im Live-Betrieb</span></div>
